@@ -1,0 +1,12 @@
+node_modules
+dist
+dist-ssr
+*.local
+.DS_Store
+*.log
+.vite
+.env
+.env.*
+preview.png
+*.ps1
+tsconfig.tsbuildinfo
