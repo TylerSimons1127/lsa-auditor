@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { motion } from "framer-motion";
 import { Search, ChevronDown, Check, X, RotateCcw } from "lucide-react";
 import { LEADS, type Lead } from "@/data/leads";
 
@@ -40,7 +39,7 @@ function CountUp({ value, currency }: { value: number; currency?: boolean }) {
     }
     let raf = 0;
     const t0 = performance.now();
-    const dur = 1100;
+    const dur = 900;
     const step = (t: number) => {
       const p = Math.min(1, (t - t0) / dur);
       const e = 1 - Math.pow(1 - p, 3);
@@ -96,82 +95,67 @@ export default function AuditConsole({ onToast }: { onToast: (msg: string, kind?
     }
   };
 
-  const toggleRow = (i: number) => {
-    setOpenIdx((cur) => (cur === i ? null : i));
-  };
+  const toggleRow = (i: number) => setOpenIdx((cur) => (cur === i ? null : i));
 
   const stats = [
-    { label: "Needs review", value: 0, sub: "this week's pile" },
-    { label: "Auto-junk", value: 0, sub: "$0.00 charged" },
-    { label: "Missed", value: 0, sub: "$0.00 lost", warn: true },
-    { label: "Credits recovered", value: 45, sub: "est · Google decides", accent: true, currency: true },
-    { label: "Charged (total)", value: 522, sub: "0 likely good · 15 done", currency: true },
+    { label: "Needs review", value: 0, accent: false },
+    { label: "Auto-junk", value: 0, accent: false },
+    { label: "Missed", value: 0, warn: true },
+    { label: "Credits recovered", value: 45, sub: "est", accent: true, currency: true },
+    { label: "Charged (total)", value: 522, sub: "15 leads", currency: true },
   ];
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-5 lg:px-8 pb-24">
-      {/* stat strip */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-8">
-        {stats.map((s, i) => (
-          <motion.div
-            key={s.label}
-            initial={{ opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.1 * i, ease: [0.16, 1, 0.3, 1] }}
-            className={`glass tile ${s.warn ? "tile--warn" : ""} ${s.accent ? "tile--accent" : ""}`}
-          >
-            <div className="tile__label">{s.label}</div>
-            <div className={`tile__value ${s.accent ? "" : ""}`}>
+    <div className="dash-inner">
+      {/* tight summary row — compact stat cards */}
+      <div className="stat-row">
+        {stats.map((s) => (
+          <div key={s.label} className={`stat ${s.warn ? "stat--warn" : ""} ${s.accent ? "stat--accent" : ""}`}>
+            <span className="stat__label">{s.label}</span>
+            <span className="stat__value">
               {s.currency ? <CountUp value={s.value} currency /> : <CountUp value={s.value} />}
-            </div>
-            <div className="tile__sub">{s.sub}</div>
-          </motion.div>
+            </span>
+            {s.sub && <span className="stat__sub">{s.sub}</span>}
+          </div>
         ))}
       </div>
 
-      {/* controls */}
-      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-5">
-        <div>
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Every lead, one view.</h2>
-          <p className="text-foreground/60 font-mono text-sm mt-1">
-            {rows.length} of {LEADS.length} leads · click a row to expand
-          </p>
+      {/* controls: search + filters, compact single row */}
+      <div className="controls">
+        <div className="filters">
+          {([
+            ["all", "All"],
+            ["needs-review", "Needs review"],
+            ["auto-junk", "Auto-junk"],
+            ["likely-good", "Likely good"],
+            ["done", "Done"],
+            ["missed", "Missed"],
+          ] as [FilterKey, string][]).map(([k, label]) => (
+            <button
+              key={k}
+              onClick={() => setFilter(k)}
+              className={`filter ${filter === k ? "is-active" : ""}`}
+            >
+              {label}
+              <span className="count">
+                {k === "all" ? LEADS.length : k === "done" ? LEADS.length : rows.filter(FMAP[k]).length}
+              </span>
+            </button>
+          ))}
         </div>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground/40" />
+        <div className="search">
+          <Search className="ic" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search name, category, id…"
-            className="glass-input"
             aria-label="Search leads"
           />
         </div>
       </div>
 
-      {/* filters */}
-      <div className="flex flex-wrap gap-2 mb-4">
-        {([
-          ["all", "All"],
-          ["needs-review", "Needs review"],
-          ["auto-junk", "Auto-junk"],
-          ["likely-good", "Likely good"],
-          ["done", "Done"],
-          ["missed", "Missed"],
-        ] as [FilterKey, string][]).map(([k, label]) => (
-          <button
-            key={k}
-            onClick={() => setFilter(k)}
-            className={`filter ${filter === k ? "is-active" : ""}`}
-          >
-            {label}
-            <span className="count">{k === "all" ? LEADS.length : k === "done" ? LEADS.length : rows.filter(FMAP[k]).length}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* table */}
-      <div className="glass table-shell overflow-hidden">
+      {/* leads table — centerpiece, fills remaining height */}
+      <div className="table-wrap">
         <table className="w-full">
           <thead>
             <tr>
@@ -190,15 +174,13 @@ export default function AuditConsole({ onToast }: { onToast: (msg: string, kind?
                 k ? (
                   <th
                     key={k}
-                    className={`sortable cursor-pointer select-none ${sortKey === k ? "sorted" : ""} ${sortDir === "desc" ? "desc" : ""} ${["charge", "age", "days"].includes(k) ? "num" : ""}`}
+                    className={`sortable ${sortKey === k ? "sorted" : ""} ${sortDir === "desc" ? "desc" : ""} ${["charge", "age", "days"].includes(k) ? "num" : ""}`}
                     onClick={() => toggleSort(k as SortKey)}
                   >
                     {label} <span className="arrow">▲</span>
                   </th>
                 ) : (
-                  <th key={label || "blank"} className={label ? "" : ""}>
-                    {label}
-                  </th>
+                  <th key={label || "blank"}>{label}</th>
                 )
               )}
             </tr>
@@ -222,19 +204,13 @@ export default function AuditConsole({ onToast }: { onToast: (msg: string, kind?
             })}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={10} className="text-center text-foreground/50 py-10">
+                <td colSpan={10} className="empty">
                   No leads match this view.
                 </td>
               </tr>
             )}
           </tbody>
         </table>
-      </div>
-
-      <div className="legend mt-4">
-        <span><span className="sw" style={{ background: "var(--accent)" }} />Amber = closing (≤7 days)</span>
-        <span><span className="sw" style={{ background: "var(--danger)" }} />Red = missed / dispute</span>
-        <span><span className="sw" style={{ background: "var(--good)" }} />Green = resolved / good</span>
       </div>
     </div>
   );
@@ -255,7 +231,8 @@ function FragmentRow({
   daysTxt: string;
   onToast: (msg: string, kind?: string) => void;
 }) {
-  const statusCls = lead.status === "Resolved" ? "status--resolved" : lead.status === "Out of area" ? "status--warn" : "status--rated";
+  const statusCls =
+    lead.status === "Resolved" ? "status--resolved" : lead.status === "Out of area" ? "status--warn" : "status--rated";
   const winTxt = lead.window === "expired" ? "expired" : lead.window === "closing" ? "closing" : "open";
   const verdict = lead.verdict === "—" ? "—" : lead.verdict === "good" ? "good" : lead.verdict === "dispute" ? "dispute" : lead.verdict;
 

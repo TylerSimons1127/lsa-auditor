@@ -2,15 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Activity, RefreshCw, Check } from "lucide-react";
+import { Check } from "lucide-react";
 import LiquidMetalHero from "@/components/ui/liquid-metal-hero";
 import AuditConsole from "@/components/audit-console";
 
-const MARQUEE = "LSA AUDITOR · LOCAL SERVICES ADS · 30-DAY FEEDBACK WINDOWS · SUNRISE HOME SERVICES · ";
-
 export default function App() {
   const [toasts, setToasts] = useState<{ id: number; msg: string; kind: string }[]>([]);
-  const [progress, setProgress] = useState(0);
 
   const pushToast = (msg: string, kind = "info") => {
     const id = Date.now() + Math.random();
@@ -18,22 +15,21 @@ export default function App() {
   };
   const dropToast = (id: number) => setToasts((t) => t.filter((x) => x.id !== id));
 
-  useEffect(() => {
-    const onScroll = () => {
-      const h = document.documentElement.scrollHeight - window.innerHeight;
-      setProgress(h > 0 ? (window.scrollY / h) * 100 : 0);
-    };
-    addEventListener("scroll", onScroll, { passive: true });
-    onScroll();
-    return () => removeEventListener("scroll", onScroll);
-  }, []);
-
   return (
-    <>
-      {/* scroll progress */}
-      <div className="progress" style={{ width: `${progress}%` }} />
+    <div className="app-shell">
+      {/* fixed fluid backdrop (kept subtle, behind the tool) */}
+      <div className="app-bg" aria-hidden="true">
+        <LiquidMetalHero
+          badge=""
+          title=""
+          subtitle=""
+          primaryCtaLabel=""
+          onPrimaryCtaClick={() => {}}
+          features={[]}
+        />
+      </div>
 
-      {/* topbar (mirrors original) */}
+      {/* top bar — thin, tool-grade (no hero) */}
       <header className="topbar">
         <div className="brand">
           <span className="brand__mark">
@@ -41,74 +37,24 @@ export default function App() {
           </span>
           <span className="brand__txt">
             <b>LSA Auditor</b>
-            <span>Local Services Ads</span>
+            <span>Sunrise Home Services</span>
           </span>
         </div>
         <div className="topbar__spacer" />
         <span className="cid">
           <span className="live" />
-          CID 1234567890 · synced 8/14/2026
+          CID 1234567890 · synced 8/14/2026, 12:46 AM
         </span>
         <button className="topbtn" onClick={() => pushToast("Lead data refreshed", "info")}>
-          <RefreshCw className="w-3.5 h-3.5" />
           Refresh
         </button>
       </header>
 
-      {/* fluid hero (badge/title/subtitle/CTAs from original overview) */}
-      <LiquidMetalHero
-        badge="Sunrise Home Services · Demo"
-        title="Unrated Local Services leads at a glance."
-        subtitle="Every lead, its 30-day feedback window, and whether a credit is recoverable — one fluid console."
-        primaryCtaLabel="Jump to leads"
-        secondaryCtaLabel="Refresh data"
-        onPrimaryCtaClick={() => document.getElementById("console")?.scrollIntoView({ behavior: "smooth" })}
-        onSecondaryCtaClick={() => pushToast("Lead data refreshed", "info")}
-        features={["15 leads audited", "$45.00 recoverable", "0 need review"]}
-      />
+      {/* single-screen dashboard body */}
+      <main className="dash">
+        <AuditConsole onToast={pushToast} />
+      </main>
 
-      {/* overview band: all-caught-up banner + stat strip (translucent over shader) */}
-      <section className="relative z-10">
-        <div className="container mx-auto px-5 lg:px-8 max-w-6xl">
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="allclear"
-          >
-            <Check className="w-4 h-4" strokeWidth={3} />
-            All caught up — nothing needs review
-          </motion.div>
-          <p className="head__meta mt-4">
-            America/New_York · synced 8/14/2026, 12:46 AM · <span style={{ opacity: 0.7 }}>source: fixture</span>
-          </p>
-        </div>
-      </section>
-
-      {/* marquee (mirrors original) */}
-      <div className="marquee" aria-hidden="true">
-        <div className="marquee__track">{Array(4).fill(<span>{MARQUEE}</span>)}</div>
-      </div>
-
-      {/* audit console: search / filters / sortable table / inline-expand detail / legend */}
-      <section id="console" className="relative z-10 bg-background/70 backdrop-blur-xl border-t border-foreground/10 pt-16">
-        <div className="container mx-auto px-5 lg:px-8 max-w-6xl">
-          <div className="flex items-center gap-2 mb-6 text-foreground/70">
-            <Activity className="w-4 h-4" />
-            <span className="text-sm font-medium tracking-tight">Lead audit console</span>
-          </div>
-          <AuditConsole onToast={pushToast} />
-        </div>
-      </section>
-
-      {/* footer (mirrors original) */}
-      <footer className="relative z-10 bg-background/60 backdrop-blur-xl border-t border-foreground/10 text-center text-xs text-foreground/50 py-8">
-        LSA Auditor · demo data (fixture) · <a href="#" className="hover:text-foreground">Privacy</a> ·{" "}
-        <a href="#" className="hover:text-foreground">Terms</a>
-      </footer>
-
-      {/* toasts */}
       <div className="toasts">
         <AnimatePresence>
           {toasts.map((t) => (
@@ -116,7 +62,7 @@ export default function App() {
           ))}
         </AnimatePresence>
       </div>
-    </>
+    </div>
   );
 }
 
