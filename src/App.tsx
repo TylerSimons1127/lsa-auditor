@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check } from "lucide-react";
-import LiquidMetalHero from "@/components/ui/liquid-metal-hero";
+import { LiquidMetal, liquidMetalPresets } from "@paper-design/shaders-react";
 import AuditConsole from "@/components/audit-console";
 
 export default function App() {
@@ -17,15 +17,17 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      {/* fixed fluid backdrop (kept subtle, behind the tool) */}
+      {/* fixed fluid backdrop — full-bleed, subtle matte liquid metal */}
       <div className="app-bg" aria-hidden="true">
-        <LiquidMetalHero
-          badge=""
-          title=""
-          subtitle=""
-          primaryCtaLabel=""
-          onPrimaryCtaClick={() => {}}
-          features={[]}
+        <LiquidMetal
+          {...liquidMetalPresets[0]}
+          shape="none"
+          fit="cover"
+          colorBack="hsl(0, 0%, 100%)"
+          repetition={3}
+          softness={0.7}
+          distortion={0.35}
+          style={{ position: "fixed", inset: 0, width: "100%", height: "100%", zIndex: 0 }}
         />
       </div>
 
