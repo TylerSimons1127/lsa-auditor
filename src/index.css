@@ -41,11 +41,8 @@
   }
 }
 
-/* ── app shell: fixed shader backdrop + tool on top ── */
-.app-shell { position: relative; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-.app-bg { position: fixed; inset: 0; z-index: 0; opacity: 0.32; pointer-events: none; }
-.app-bg::after { content: ""; position: fixed; inset: 0; z-index: 1; background: hsl(0 0% 100% / 0.45); pointer-events: none; }
-.app-bg > * { position: absolute !important; inset: 0 !important; }
+/* ── app shell: clean matte backdrop, tool on top ── */
+.app-shell { position: relative; height: 100vh; display: flex; flex-direction: column; overflow: hidden; background: hsl(var(--foreground) / 0.035); }
 
 /* ── top bar (thin, tool-grade) ── */
 .topbar {
