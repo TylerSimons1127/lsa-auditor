@@ -134,6 +134,7 @@ td.charge { font-family: ui-monospace, monospace; font-weight: 500; color: hsl(v
 .status--rated .dot { background: hsl(var(--good)); } .status--rated { color: hsl(var(--good)); }
 .status--resolved .dot { background: hsl(214 70% 55%); } .status--resolved { color: hsl(214 70% 55%); }
 .status--warn .dot { background: hsl(var(--danger)); } .status--warn { color: hsl(var(--danger)); font-weight: 600; }
+.status--disputed .dot { background: hsl(var(--danger)); } .status--disputed { color: hsl(var(--danger)); font-weight: 600; }
 tbody tr.row:hover .status .dot { transform: scale(1.5); }
 .days { font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
 .days--amber { color: hsl(38 92% 45%); } .days--red { color: hsl(var(--danger)); } .days--calm { color: hsl(var(--foreground) / 0.7); }
@@ -173,13 +174,14 @@ tr.detail-row.open .detail-wrap { grid-template-rows: 1fr; }
 .status--actionable { color: hsl(var(--muted-foreground)); }
 .muted-dash { color: hsl(var(--muted-foreground) / 0.6); text-decoration: line-through; }
 
-/* ── unified detail panel (KV rows, one calm card) ── */
+/* ── unified detail panel (2-column KV grid, one calm card) ── */
 .panel { display: flex; flex-direction: column; gap: 14px; }
-.panel__rows { display: flex; flex-direction: column; }
-.kv { display: flex; align-items: baseline; justify-content: space-between; gap: 18px; padding: 8px 2px; border-bottom: 1px solid hsl(var(--foreground) / 0.09); }
+.kv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 22px; }
+.kv { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; padding: 7px 2px; border-bottom: 1px solid hsl(var(--foreground) / 0.08); }
+.kv--full { grid-column: 1 / -1; }
 .kv:last-child { border-bottom: none; }
-.kv__k { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: hsl(var(--muted-foreground)); flex: 0 0 auto; }
-.kv__v { font-size: 13.5px; color: hsl(var(--foreground)); text-align: right; line-height: 1.4; }
+.kv__k { font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: hsl(var(--muted-foreground)); flex: 0 0 auto; }
+.kv__v { font-size: 13px; color: hsl(var(--foreground)); text-align: right; line-height: 1.4; }
 .kv--note .kv__v { text-align: right; }
 .geo-note { color: hsl(var(--muted-foreground)); font-size: 12.5px; }
 

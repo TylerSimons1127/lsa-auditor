@@ -25,13 +25,17 @@ export interface DisputeRecord {
 }
 
 // Display status derived from the lead's state.
-//  - Resolved            -> blue
+//  - Disputed (flagged in this tool) -> red "Disputed" (pending Google, not yet resolved)
+//  - Resolved                     -> blue
+//  - Out of area                 -> grey "Out of area" (not creditable, no action needed)
 //  - Missed (expired window, nothing credited) -> red
-//  - Actionable          -> grey, neutral (decision not yet made)
-//  - Rated / default     -> green
-export type StatusTone = "resolved" | "missed" | "actionable" | "rated";
+//  - Actionable                  -> grey, neutral (decision not yet made)
+//  - Rated / default             -> green
+export type StatusTone = "resolved" | "missed" | "actionable" | "rated" | "disputed";
 
-export function statusInfo(l: Lead): { label: string; tone: StatusTone } {
+export function statusInfo(l: Lead, disputed = false): { label: string; tone: StatusTone } {
+  if (disputed) return { label: "Disputed", tone: "disputed" };
+  if (l.status === "Out of area") return { label: "Out of area", tone: "actionable" };
   if (l.status === "Resolved") return { label: "Resolved", tone: "resolved" };
   if (l.window === "expired" && l.creditState !== "CREDITED")
     return { label: "Missed", tone: "missed" };

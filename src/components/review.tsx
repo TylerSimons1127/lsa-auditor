@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, Check } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, Flag } from "lucide-react";
 import { LEADS, type Lead } from "@/data/leads";
-import { LeadDetailPanel } from "@/components/audit-console";
-import { type DisputeRecord } from "@/lead-meta";
+import { LeadDetailPanel, DisputeForm } from "@/components/audit-console";
+import { type DisputeRecord, type DisputeKey } from "@/lead-meta";
 
 interface Props {
   onClose: () => void;
@@ -19,11 +19,13 @@ export default function WeeklyReview({ onClose, disputes, onDispute, onToast }: 
   const [i, setI] = useState(0);
   const [done, setDone] = useState<{ kept: number; disputed: number; skipped: number }>({ kept: 0, disputed: 0, skipped: 0 });
   const [finished, setFinished] = useState(false);
+  const [flagging, setFlagging] = useState(false);
 
   const lead: Lead | undefined = queue[i];
 
   const advance = (kind: "kept" | "disputed" | "skipped") => {
     setDone((d) => ({ ...d, [kind]: d[kind] + 1 }));
+    setFlagging(false);
     if (i + 1 >= queue.length) setFinished(true);
     else setI((n) => n + 1);
   };
@@ -31,16 +33,16 @@ export default function WeeklyReview({ onClose, disputes, onDispute, onToast }: 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") { onClose(); return; }
-      if (finished) return;
+      if (finished || flagging) return;
       const t = e.target as HTMLElement | null;
       const typing = t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable);
       if (typing) return;
-      if (e.key === "ArrowRight" || e.key === "Enter") advance("skipped");
+      if (e.key === "ArrowRight") advance("skipped");
       if (e.key === "ArrowLeft") setI((n) => Math.max(0, n - 1));
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [i, finished]);
+  }, [i, finished, flagging]);
 
   if (finished) {
     return (
@@ -77,28 +79,46 @@ export default function WeeklyReview({ onClose, disputes, onDispute, onToast }: 
         <div className="review review--page">
           <div className="review__biz">Sunrise Home Services</div>
 
-          <div className="review__body">
-            {lead && (
-              <LeadDetailPanel
-                lead={lead}
-                disputes={disputes}
-                onDispute={(id, rec) => { onDispute(id, rec); onToast(`Flagged ${lead.googleLeadId} for dispute — saved locally`, "info"); }}
-                onToast={onToast}
-              />
-            )}
-          </div>
+          {flagging ? (
+            <DisputeForm
+              onSubmit={(reason: DisputeKey, comment?: string) => {
+                if (!lead) return;
+                onDispute(lead.id, { reason, comment });
+                onToast(`Flagged ${lead.googleLeadId} for dispute — saved locally`, "info");
+                advance("disputed");
+              }}
+              onCancel={() => setFlagging(false)}
+            />
+          ) : (
+            <>
+              <div className="review__body">
+                {lead && (
+                  <LeadDetailPanel
+                    lead={lead}
+                    disputes={disputes}
+                    onDispute={onDispute}
+                    onToast={onToast}
+                    mode="review"
+                  />
+                )}
+              </div>
 
-          <div className="review__foot">
-            <button className="act" onClick={() => { setI((n) => Math.max(0, n - 1)); }} disabled={i === 0}>
-              <ChevronLeft className="w-3.5 h-3.5" /> Previous
-            </button>
-            <button className="act act--accent" onClick={() => advance("kept")}>
-              <Check className="w-3.5 h-3.5" /> Keep as good
-            </button>
-            <button className="act act--ghost" onClick={() => advance("skipped")}>
-              Skip <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
+              <div className="review__foot">
+                <button className="act" onClick={() => setI((n) => Math.max(0, n - 1))} disabled={i === 0}>
+                  <ChevronLeft className="w-3.5 h-3.5" /> Previous
+                </button>
+                <button className="act act--accent" onClick={() => { if (lead) onToast(`Lead ${lead.googleLeadId} kept as good`, "ok"); advance("kept"); }}>
+                  <Check className="w-3.5 h-3.5" /> Keep as good
+                </button>
+                <button className="act act--danger" onClick={() => setFlagging(true)}>
+                  <Flag className="w-3.5 h-3.5" /> Flag for dispute
+                </button>
+                <button className="act act--ghost" onClick={() => advance("skipped")}>
+                  Skip <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

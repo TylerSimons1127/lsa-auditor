@@ -192,7 +192,7 @@ export default function AuditConsole({
           </thead>
           <tbody>
             {rows.map((l) => {
-              const si = statusInfo(l);
+              const si = statusInfo(l, !!disputes[l.id]);
               const cm = creditLabel(l);
               const daysTxt = l.window === "expired" ? "Expired" : `${l.days}d`;
               const isOpen = openIdx === LEADS.indexOf(l);
@@ -207,7 +207,6 @@ export default function AuditConsole({
                     cm={cm}
                     creditShown={creditShown}
                     daysTxt={daysTxt}
-                    disputed={!!disputes[l.id]}
                   />
                   <ExpandedLead
                     lead={l}
@@ -233,14 +232,14 @@ export default function AuditConsole({
 }
 
 function FragmentRow({
-  lead, isOpen, onToggle, statusInfo, cm, creditShown, daysTxt, disputed,
+  lead, isOpen, onToggle, statusInfo, cm, creditShown, daysTxt,
 }: {
   lead: Lead; isOpen: boolean; onToggle: () => void;
   statusInfo: { label: string; tone: string };
-  cm: { cls: string; txt: string }; creditShown: boolean; daysTxt: string; disputed: boolean;
+  cm: { cls: string; txt: string }; creditShown: boolean; daysTxt: string;
 }) {
   const toneCls =
-    statusInfo.tone === "resolved" ? "status--resolved" : statusInfo.tone === "missed" ? "status--warn" : statusInfo.tone === "actionable" ? "status--actionable" : "status--rated";
+    statusInfo.tone === "resolved" ? "status--resolved" : statusInfo.tone === "missed" ? "status--warn" : statusInfo.tone === "actionable" ? "status--actionable" : statusInfo.tone === "disputed" ? "status--warn" : "status--rated";
   return (
     <tr className={`row ${isOpen ? "open" : ""}`} onClick={onToggle}>
       <td className="date">{lead.date}</td>
@@ -261,7 +260,7 @@ function FragmentRow({
       <td>
         <span className={`status ${toneCls}`}>
           <span className="dot" />
-          {statusInfo.label}{disputed ? " · disputed" : ""}
+          {statusInfo.label}
         </span>
       </td>
       <td><span className="chev"><ChevronDown className="w-3 h-3" /></span></td>
@@ -269,15 +268,16 @@ function FragmentRow({
   );
 }
 
-// One clean unified panel — used inline, in the full-lead overlay, and in the review slideshow.
+// One clean unified panel — used inline (dropdown), in the full-lead overlay, and in the review.
+// `mode="review"` hides the inline action buttons (the review has its own decision footer).
 export function LeadDetailPanel({
-  lead, disputes, onDispute, onToast, compact,
+  lead, disputes, onDispute, onToast, mode = "dropdown",
 }: {
   lead: Lead;
   disputes: DisputeStore;
   onDispute: (id: string, rec: DisputeRecord) => void;
   onToast: (msg: string, kind?: string) => void;
-  compact?: boolean;
+  mode?: "dropdown" | "review";
 }) {
   const cm = creditLabel(lead);
   const creditShown = showCreditState(lead);
@@ -285,47 +285,45 @@ export function LeadDetailPanel({
   const winTxt = lead.window === "expired" ? "expired" : lead.window === "closing" ? "closing" : "open";
   const rec = disputes[lead.id];
 
-  const rows: [string, React.ReactNode][] = [
-    ["Credit state", creditShown ? <span className={`pill pill--${cm.cls}`}>{cm.txt}</span> : <span className="muted-dash">—</span>],
-    ["Created", lead.created],
-    ["Age / window", `${lead.age}d old · ${lead.days}d left (${winTxt})`],
-    ["Lead type", lead.type],
-    ["Source status", "ACTIVE"],
-    ["Charged", <b key="c">{fmtCharge(lead.charge)}</b>],
-    ["Credit amount", lead.creditState === "CREDITED" ? fmtCharge(lead.charge) : "—"],
-    ["Contact", (lead.name ?? "—") + (lead.phone ? ` · ${lead.phone}` : "")],
-    ["Review verdict", lead.verdict === "—" ? "—" : lead.verdict],
-    ["Dispute reason", lead.dispute || "—"],
+  const rows: { k: string; v: React.ReactNode }[] = [
+    { k: "Credit state", v: creditShown ? <span className={`pill pill--${cm.cls}`}>{cm.txt}</span> : <span className="muted-dash">—</span> },
+    { k: "Created", v: lead.created },
+    { k: "Age / window", v: `${lead.age}d old · ${lead.days}d left (${winTxt})` },
+    { k: "Lead type", v: lead.type },
+    { k: "Source status", v: "ACTIVE" },
+    { k: "Charged", v: <b key="c">{fmtCharge(lead.charge)}</b> },
+    { k: "Credit amount", v: lead.creditState === "CREDITED" ? fmtCharge(lead.charge) : "—" },
+    { k: "Contact", v: (lead.name ?? "—") + (lead.phone ? ` · ${lead.phone}` : "") },
+    { k: "Review verdict", v: lead.verdict === "—" ? "—" : lead.verdict },
+    { k: "Dispute reason", v: lead.dispute || "—" },
   ];
 
   return (
     <div className="panel">
-      <div className="panel__rows">
-        {rows.map(([k, v]) => (
-          <div className="kv" key={k}>
-            <span className="kv__k">{k}</span>
-            <span className="kv__v">{v}</span>
+      <div className="kv-grid">
+        {rows.map((r) => (
+          <div className="kv" key={r.k}>
+            <span className="kv__k">{r.k}</span>
+            <span className="kv__v">{r.v}</span>
           </div>
         ))}
-        <div className="kv">
+        <div className="kv kv--full">
           <span className="kv__k">Classification</span>
           <span className="kv__v"><b>{lead.cls}</b> — {lead.clsDetail}</span>
         </div>
-        <div className="kv">
-          <span className="kv__k">Conversation</span>
-          <span className="kv__v">
-            <Conversation lead={lead} />
-          </span>
-        </div>
         {geo && (
-          <div className="kv kv--note">
+          <div className="kv kv--full kv--note">
             <span className="kv__k">Note</span>
             <span className="kv__v geo-note">{geo}</span>
           </div>
         )}
+        <div className="kv kv--full">
+          <span className="kv__k">Conversation</span>
+          <span className="kv__v"><Conversation lead={lead} /></span>
+        </div>
       </div>
 
-      {!compact && (
+      {mode === "dropdown" && (
         <DisputeBox lead={lead} rec={rec} onDispute={onDispute} onToast={onToast} />
       )}
 
@@ -356,6 +354,62 @@ function Conversation({ lead }: { lead: Lead }) {
   );
 }
 
+// Shared reason-selector form. `onSubmit` fires with the chosen reason + optional comment.
+// `onCancel` lets the parent close it. Used by both the dropdown and the weekly-review footer.
+export function DisputeForm({
+  rec, onSubmit, onCancel,
+}: {
+  rec?: DisputeRecord;
+  onSubmit: (reason: DisputeKey, comment?: string) => void;
+  onCancel?: () => void;
+}) {
+  const [reason, setReason] = useState<DisputeKey | "">(rec?.reason ?? "");
+  const [comment, setComment] = useState(rec?.comment ?? "");
+  const needsComment = DISPUTE_REASONS.find((x) => x.key === reason)?.requiresComment;
+  const canSubmit = !!reason && (!needsComment || comment.trim().length > 0);
+
+  return (
+    <div className="dispute__form">
+      <div className="dispute__title">Why is this lead invalid? (Google only credits specific reasons)</div>
+      <div className="dispute__opts">
+        {DISPUTE_REASONS.map((r) => (
+          <button
+            key={r.key}
+            type="button"
+            className={`dispute__opt ${reason === r.key ? "is-active" : ""}`}
+            onClick={() => setReason(r.key)}
+          >
+            {r.label}
+          </button>
+        ))}
+      </div>
+      {needsComment && (
+        <textarea
+          className="dispute__comment"
+          placeholder="Required — explain the issue…"
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+        />
+      )}
+      <div className="dispute__actions">
+        <button
+          type="button"
+          className="act act--accent"
+          disabled={!canSubmit}
+          onClick={() => { if (!reason) return; onSubmit(reason, comment.trim() || undefined); }}
+        >
+          <Check className="w-3.5 h-3.5" /> Submit flag
+        </button>
+        {onCancel && (
+          <button type="button" className="act" onClick={onCancel}>Cancel</button>
+        )}
+      </div>
+      <span className="dispute__note">Saved in this tool — not yet sent to Google</span>
+    </div>
+  );
+}
+
+// Dropdown variant: shows the filed state, or action buttons + reason selector.
 function DisputeBox({
   lead, rec, onDispute, onToast,
 }: {
@@ -364,8 +418,6 @@ function DisputeBox({
   onToast: (msg: string, kind?: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [reason, setReason] = useState<DisputeKey | "">(rec?.reason ?? "");
-  const [comment, setComment] = useState(rec?.comment ?? "");
 
   if (rec) {
     const r = DISPUTE_REASONS.find((x) => x.key === rec.reason);
@@ -381,63 +433,34 @@ function DisputeBox({
     );
   }
 
-  const needsComment = DISPUTE_REASONS.find((x) => x.key === reason)?.requiresComment;
-  const canSubmit = !!reason && (!needsComment || comment.trim().length > 0);
+  if (open) {
+    return (
+      <div className="dispute">
+        <DisputeForm
+          onSubmit={(reason, comment) => {
+            onDispute(lead.id, { reason, comment });
+            onToast(`Flagged ${lead.googleLeadId} for dispute — saved locally`, "info");
+            setOpen(false);
+          }}
+          onCancel={() => setOpen(false)}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="dispute">
-      {!open ? (
-        <div className="detail-actions">
-          <button className="act act--accent" onClick={() => setOpen(true)}>
-            <RotateCcw className="w-3.5 h-3.5" /> Flag for dispute
-          </button>
-          <button className="act act--danger" onClick={() => onToast(`Marked ${lead.googleLeadId} as junk`, "warn")}>
-            <X className="w-3.5 h-3.5" /> Mark as junk
-          </button>
-          <button className="act" onClick={() => onToast(`Lead ${lead.googleLeadId} kept as good`, "ok")}>
-            <Check className="w-3.5 h-3.5" /> Keep as good
-          </button>
-        </div>
-      ) : (
-        <div className="dispute__form">
-          <div className="dispute__title">Why is this lead invalid? (Google only credits specific reasons)</div>
-          <div className="dispute__opts">
-            {DISPUTE_REASONS.map((r) => (
-              <button
-                key={r.key}
-                className={`dispute__opt ${reason === r.key ? "is-active" : ""}`}
-                onClick={() => setReason(r.key)}
-              >
-                {r.label}
-              </button>
-            ))}
-          </div>
-          {needsComment && (
-            <textarea
-              className="dispute__comment"
-              placeholder="Required — explain the issue…"
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-            />
-          )}
-          <div className="dispute__actions">
-            <button
-              className="act act--accent"
-              disabled={!canSubmit}
-              onClick={() => {
-                if (!reason) return;
-                onDispute(lead.id, { reason, comment: comment.trim() || undefined });
-                onToast(`Flagged ${lead.googleLeadId} for dispute — saved locally`, "info");
-                setOpen(false);
-              }}
-            >
-              <Check className="w-3.5 h-3.5" /> Submit flag
-            </button>
-            <button className="act" onClick={() => setOpen(false)}>Cancel</button>
-          </div>
-          <span className="dispute__note">Saved in this tool — not yet sent to Google</span>
-        </div>
-      )}
+      <div className="detail-actions">
+        <button className="act act--accent" onClick={() => setOpen(true)}>
+          <RotateCcw className="w-3.5 h-3.5" /> Flag for dispute
+        </button>
+        <button className="act act--danger" onClick={() => onToast(`Marked ${lead.googleLeadId} as junk`, "warn")}>
+          <X className="w-3.5 h-3.5" /> Mark as junk
+        </button>
+        <button className="act" onClick={() => onToast(`Lead ${lead.googleLeadId} kept as good`, "ok")}>
+          <Check className="w-3.5 h-3.5" /> Keep as good
+        </button>
+      </div>
     </div>
   );
 }
