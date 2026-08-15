@@ -81,7 +81,36 @@ export default function WeeklyReview({ onClose, disputes, onDispute, onToast, ra
         <div className="review review--page">
           <div className="review__biz">Sunrise Home Services</div>
 
-          {flagging ? (
+          <div className="review__body">
+            {lead && (
+              <LeadDetailPanel
+                lead={lead}
+                disputes={disputes}
+                onDispute={onDispute}
+                onToast={onToast}
+                rated={rated}
+                onRated={onRated}
+                mode="review"
+              />
+            )}
+          </div>
+
+          <div className="review__foot">
+            <button className="act" onClick={() => setI((n) => Math.max(0, n - 1))} disabled={i === 0}>
+              <ChevronLeft className="w-3.5 h-3.5" /> Previous
+            </button>
+            <button className="act act--accent" onClick={() => { if (lead) { onRated(lead.id); onToast(`Lead ${lead.googleLeadId} kept as good`, "ok"); } advance("kept"); }}>
+              <Check className="w-3.5 h-3.5" /> Keep as good
+            </button>
+            <button className={`act act--danger ${flagging ? "is-active" : ""}`} onClick={() => setFlagging((f) => !f)}>
+              <Flag className="w-3.5 h-3.5" /> Flag for dispute
+            </button>
+            <button className="act act--ghost" onClick={() => advance("skipped")}>
+              Skip <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {flagging && (
             <DisputeForm
               onSubmit={(reason: DisputeKey, comment?: string) => {
                 if (!lead) return;
@@ -91,37 +120,6 @@ export default function WeeklyReview({ onClose, disputes, onDispute, onToast, ra
               }}
               onCancel={() => setFlagging(false)}
             />
-          ) : (
-            <>
-              <div className="review__body">
-                {lead && (
-                  <LeadDetailPanel
-                    lead={lead}
-                    disputes={disputes}
-                    onDispute={onDispute}
-                    onToast={onToast}
-                    rated={rated}
-                    onRated={onRated}
-                    mode="review"
-                  />
-                )}
-              </div>
-
-              <div className="review__foot">
-                <button className="act" onClick={() => setI((n) => Math.max(0, n - 1))} disabled={i === 0}>
-                  <ChevronLeft className="w-3.5 h-3.5" /> Previous
-                </button>
-                <button className="act act--accent" onClick={() => { if (lead) { onRated(lead.id); onToast(`Lead ${lead.googleLeadId} kept as good`, "ok"); } advance("kept"); }}>
-                  <Check className="w-3.5 h-3.5" /> Keep as good
-                </button>
-                <button className="act act--danger" onClick={() => setFlagging(true)}>
-                  <Flag className="w-3.5 h-3.5" /> Flag for dispute
-                </button>
-                <button className="act act--ghost" onClick={() => advance("skipped")}>
-                  Skip <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </>
           )}
         </div>
       </div>
