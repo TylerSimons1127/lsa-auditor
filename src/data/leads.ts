@@ -21,6 +21,7 @@ export interface Lead {
   created: string;
   convo: [string, string];
   note: string;
+  recordingUrl?: string;
 }
 
 export const LEADS: Lead[] = [
