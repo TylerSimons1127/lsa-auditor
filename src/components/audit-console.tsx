@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Search, ChevronDown, Check, X, RotateCcw, AlertTriangle, Trash2, Sparkles } from "lucide-react";
+import { Search, ChevronDown, Check, X, RotateCcw } from "lucide-react";
 import { LEADS, type Lead } from "@/data/leads";
-import { type Prefs } from "@/prefs";
 
-type FilterKey = "all" | "needs-review" | "auto-junk" | "likely-good";
+type FilterKey = "all" | "needs-review" | "auto-junk" | "likely-good" | "done" | "missed";
 type SortKey = "date" | "cat" | "type" | "charge" | "credit" | "age" | "days" | "status";
 
 const FMAP: Record<FilterKey, (l: Lead) => boolean> = {
@@ -13,6 +12,8 @@ const FMAP: Record<FilterKey, (l: Lead) => boolean> = {
   "needs-review": (l) => l.cls === "Needs review",
   "auto-junk": (l) => l.cls === "Auto-junk",
   "likely-good": (l) => l.cls === "Likely good",
+  done: () => true,
+  missed: () => false,
 };
 
 const STATUS_CLS: Record<string, string> = { green: "green", grey: "grey", blue: "blue" };
@@ -24,35 +25,21 @@ const CREDIT_MAP: Record<string, { cls: string; txt: string }> = {
   NO_CREDIT: { cls: "none", txt: "Not refunded" },
 };
 
-function fmtCharge(c: number | null, p: Prefs) {
-  if (c == null) return "—";
-  const cur = p.currency === "none" ? "" : p.currency === "USD" ? "$" : p.currency === "EUR" ? "€" : "£";
-  const fixed = p.numberFormat === "eu" ? c.toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".") : c.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  return `${cur}${fixed}`;
-}
+const fmtCharge = (c: number | null) => (c == null ? "—" : `$${c.toFixed(2)}`);
+const daysCls = (d: string) =>
+  d === "Expired" ? "days--red" : Number(d.replace("d", "")) <= 7 ? "days--amber" : "days--calm";
 
-function fmtDate(d: string, p: Prefs) {
-  if (p.dateFormat === "relative") {
-    const days = Math.round((Date.now() - new Date(d + "T00:00:00").getTime()) / 86400000);
-    return days <= 0 ? "today" : `${days}d ago`;
-  }
-  const [y, m, day] = d.split("-").map(Number);
-  if (p.dateFormat === "us") return `${String(m).padStart(2, "0")}/${String(day).padStart(2, "0")}/${String(y).slice(2)}`;
-  if (p.dateFormat === "eu") return `${String(day).padStart(2, "0")}.${String(m).padStart(2, "0")}.${String(y).slice(2)}`;
-  return d;
-}
-
-function daysCls(d: string) {
-  return d === "Expired" ? "days--red" : Number(d.replace("d", "")) <= 7 ? "days--amber" : "days--calm";
-}
-
-function CountUp({ value, currency, prefs }: { value: number; currency?: boolean; prefs: Prefs }) {
+function CountUp({ value, currency }: { value: number; currency?: boolean }) {
   const [v, setV] = useState(0);
   useEffect(() => {
-    if (!prefs.animations) { setV(value); return; }
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) {
+      setV(value);
+      return;
+    }
     let raf = 0;
     const t0 = performance.now();
-    const dur = 800;
+    const dur = 900;
     const step = (t: number) => {
       const p = Math.min(1, (t - t0) / dur);
       const e = 1 - Math.pow(1 - p, 3);
@@ -61,35 +48,16 @@ function CountUp({ value, currency, prefs }: { value: number; currency?: boolean
     };
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
-  }, [value, prefs.animations]);
-  if (currency) return <>{fmtCharge(value, prefs)}</>;
-  const n = Math.round(v);
-  return <>{prefs.numberFormat === "eu" ? n.toLocaleString("de-DE") : n.toLocaleString("en-US")}</>;
+  }, [value]);
+  return <>{currency ? `$${v.toFixed(2)}` : Math.round(v)}</>;
 }
 
-export default function AuditConsole({ prefs, onToast }: { prefs: Prefs; onToast: (msg: string, kind?: string) => void }) {
-  const [filter, setFilter] = useState<FilterKey>(prefs.defaultFilter);
+export default function AuditConsole({ onToast }: { onToast: (msg: string, kind?: string) => void }) {
+  const [filter, setFilter] = useState<FilterKey>("all");
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [openIdx, setOpenIdx] = useState<number | null>(null);
-
-  useEffect(() => { setFilter(prefs.defaultFilter); }, [prefs.defaultFilter]);
-
-  const stats = useMemo(() => {
-    const junk = LEADS.filter((l) => l.cls === "Auto-junk");
-    const credited = LEADS.filter((l) => l.creditState === "CREDITED").reduce((s, l) => s + (l.charge ?? 0), 0);
-    const charged = LEADS.reduce((s, l) => s + (l.charge ?? 0), 0);
-    const expiring = LEADS.filter((l) => l.window !== "expired" && l.days <= 7).length;
-    const needsReview = LEADS.filter((l) => l.cls === "Needs review").length;
-    return [
-      { label: "Needs review", value: needsReview, sub: "action required", tone: "warn" as const },
-      { label: "Auto-junk", value: junk.length, sub: `${fmtCharge(junk.reduce((s, l) => s + (l.charge ?? 0), 0), prefs)} blocked`, tone: "neutral" as const },
-      { label: "Closing ≤7d", value: expiring, sub: "dispute window", tone: "warn" as const },
-      { label: "Credits recovered", value: credited, sub: "est · Google decides", tone: "good" as const, currency: true },
-      { label: "Charged (total)", value: charged, sub: `${LEADS.length} leads`, tone: "accent" as const, currency: true },
-    ];
-  }, [prefs]);
 
   const rows = useMemo(() => {
     let r = LEADS.filter(FMAP[filter]);
@@ -121,33 +89,38 @@ export default function AuditConsole({ prefs, onToast }: { prefs: Prefs; onToast
 
   const toggleSort = (k: SortKey) => {
     if (sortKey === k) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else { setSortKey(k); setSortDir(k === "date" || k === "age" || k === "days" ? "desc" : "asc"); }
+    else {
+      setSortKey(k);
+      setSortDir(k === "date" || k === "age" || k === "days" ? "desc" : "asc");
+    }
   };
 
   const toggleRow = (i: number) => setOpenIdx((cur) => (cur === i ? null : i));
 
-  const counts = useMemo(
-    () => ({
-      all: LEADS.length,
-      "needs-review": LEADS.filter(FMAP["needs-review"]).length,
-      "auto-junk": LEADS.filter(FMAP["auto-junk"]).length,
-      "likely-good": LEADS.filter(FMAP["likely-good"]).length,
-    }),
-    []
-  );
+  const stats = [
+    { label: "Needs review", value: 0, accent: false },
+    { label: "Auto-junk", value: 0, accent: false },
+    { label: "Missed", value: 0, warn: true },
+    { label: "Credits recovered", value: 45, sub: "est", accent: true, currency: true },
+    { label: "Charged (total)", value: 522, sub: "15 leads", currency: true },
+  ];
 
   return (
     <div className="dash-inner">
+      {/* tight summary row — compact stat cards */}
       <div className="stat-row">
         {stats.map((s) => (
-          <div key={s.label} className={`stat ${s.tone === "warn" ? "stat--warn" : s.tone === "good" ? "stat--good" : s.tone === "accent" ? "stat--accent" : ""}`}>
+          <div key={s.label} className={`stat ${s.warn ? "stat--warn" : ""} ${s.accent ? "stat--accent" : ""}`}>
             <span className="stat__label">{s.label}</span>
-            <span className="stat__value"><CountUp value={s.value} currency={s.currency} prefs={prefs} /></span>
-            <span className="stat__sub">{s.sub}</span>
+            <span className="stat__value">
+              {s.currency ? <CountUp value={s.value} currency /> : <CountUp value={s.value} />}
+            </span>
+            {s.sub && <span className="stat__sub">{s.sub}</span>}
           </div>
         ))}
       </div>
 
+      {/* controls: search + filters, compact single row */}
       <div className="controls">
         <div className="filters">
           {([
@@ -155,19 +128,33 @@ export default function AuditConsole({ prefs, onToast }: { prefs: Prefs; onToast
             ["needs-review", "Needs review"],
             ["auto-junk", "Auto-junk"],
             ["likely-good", "Likely good"],
+            ["done", "Done"],
+            ["missed", "Missed"],
           ] as [FilterKey, string][]).map(([k, label]) => (
-            <button key={k} onClick={() => setFilter(k)} className={`filter ${filter === k ? "is-active" : ""}`}>
+            <button
+              key={k}
+              onClick={() => setFilter(k)}
+              className={`filter ${filter === k ? "is-active" : ""}`}
+            >
               {label}
-              <span className="count">{counts[k]}</span>
+              <span className="count">
+                {k === "all" ? LEADS.length : k === "done" ? LEADS.length : rows.filter(FMAP[k]).length}
+              </span>
             </button>
           ))}
         </div>
         <div className="search">
           <Search className="ic" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, category, id…" aria-label="Search leads" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search name, category, id…"
+            aria-label="Search leads"
+          />
         </div>
       </div>
 
+      {/* leads table — centerpiece, fills remaining height */}
       <div className="table-wrap">
         <table className="w-full">
           <thead>
@@ -185,7 +172,11 @@ export default function AuditConsole({ prefs, onToast }: { prefs: Prefs; onToast
                 ["", ""],
               ] as [SortKey | "", string][]).map(([k, label]) =>
                 k ? (
-                  <th key={k} className={`sortable ${sortKey === k ? "sorted" : ""} ${sortDir === "desc" ? "desc" : ""} ${["charge", "age", "days"].includes(k) ? "num" : ""}`} onClick={() => toggleSort(k as SortKey)}>
+                  <th
+                    key={k}
+                    className={`sortable ${sortKey === k ? "sorted" : ""} ${sortDir === "desc" ? "desc" : ""} ${["charge", "age", "days"].includes(k) ? "num" : ""}`}
+                    onClick={() => toggleSort(k as SortKey)}
+                  >
                     {label} <span className="arrow">▲</span>
                   </th>
                 ) : (
@@ -199,8 +190,6 @@ export default function AuditConsole({ prefs, onToast }: { prefs: Prefs; onToast
               const cm = CREDIT_MAP[l.creditState] ?? { cls: "none", txt: "—" };
               const daysTxt = l.window === "expired" ? "Expired" : `${l.days}d`;
               const isOpen = openIdx === LEADS.indexOf(l);
-              const tagCls = l.cls === "Needs review" ? "tag--needs" : l.cls === "Auto-junk" ? "tag--junk" : "tag--good";
-              const TagIcon = l.cls === "Needs review" ? AlertTriangle : l.cls === "Auto-junk" ? Trash2 : Sparkles;
               return (
                 <FragmentRow
                   key={l.id}
@@ -209,15 +198,16 @@ export default function AuditConsole({ prefs, onToast }: { prefs: Prefs; onToast
                   onToggle={() => toggleRow(LEADS.indexOf(l))}
                   cm={cm}
                   daysTxt={daysTxt}
-                  tagCls={tagCls}
-                  TagIcon={TagIcon}
-                  prefs={prefs}
                   onToast={onToast}
                 />
               );
             })}
             {rows.length === 0 && (
-              <tr><td colSpan={10} className="empty">No leads match this view.</td></tr>
+              <tr>
+                <td colSpan={10} className="empty">
+                  No leads match this view.
+                </td>
+              </tr>
             )}
           </tbody>
         </table>
@@ -227,29 +217,56 @@ export default function AuditConsole({ prefs, onToast }: { prefs: Prefs; onToast
 }
 
 function FragmentRow({
-  lead, isOpen, onToggle, cm, daysTxt, tagCls, TagIcon, prefs, onToast,
+  lead,
+  isOpen,
+  onToggle,
+  cm,
+  daysTxt,
+  onToast,
 }: {
-  lead: Lead; isOpen: boolean; onToggle: () => void;
-  cm: { cls: string; txt: string }; daysTxt: string;
-  tagCls: string; TagIcon: any; prefs: Prefs; onToast: (msg: string, kind?: string) => void;
+  lead: Lead;
+  isOpen: boolean;
+  onToggle: () => void;
+  cm: { cls: string; txt: string };
+  daysTxt: string;
+  onToast: (msg: string, kind?: string) => void;
 }) {
-  const statusCls = lead.status === "Resolved" ? "status--resolved" : lead.status === "Out of area" ? "status--warn" : "status--rated";
+  const statusCls =
+    lead.status === "Resolved" ? "status--resolved" : lead.status === "Out of area" ? "status--warn" : "status--rated";
   const winTxt = lead.window === "expired" ? "expired" : lead.window === "closing" ? "closing" : "open";
   const verdict = lead.verdict === "—" ? "—" : lead.verdict === "good" ? "good" : lead.verdict === "dispute" ? "dispute" : lead.verdict;
 
   return (
     <>
       <tr className={`row ${isOpen ? "open" : ""}`} onClick={onToggle}>
-        <td className="date">{fmtDate(lead.date, prefs)}</td>
+        <td className="date">{lead.date}</td>
         <td className="cat">{lead.cat}</td>
         <td className="type">{lead.type}</td>
-        <td className="num charge">{fmtCharge(lead.charge, prefs)}</td>
-        <td><span className={`tag-pill ${tagCls}`}><TagIcon />{lead.cls}</span></td>
-        <td><span className={`badge badge--credit ${cm.cls}`} style={{ borderRadius: 6, padding: "3px 9px", fontSize: 11.5, fontWeight: 600 }}>{cm.txt}</span></td>
+        <td className="num charge">{fmtCharge(lead.charge)}</td>
+        <td>
+          <div className="cls">
+            <b>{lead.cls}</b>
+            <small>{lead.clsDetail}</small>
+          </div>
+        </td>
+        <td>
+          <span className={`pill pill--${cm.cls}`}>{cm.txt}</span>
+        </td>
         <td className="num">{lead.age}d</td>
-        <td className="num"><span className={`days ${daysCls(daysTxt)}`}>{daysTxt}</span></td>
-        <td><span className={`status ${statusCls}`}><span className="dot" />{lead.status}</span></td>
-        <td><span className="chev"><ChevronDown /></span></td>
+        <td className="num">
+          <span className={`days ${daysCls(daysTxt)}`}>{daysTxt}</span>
+        </td>
+        <td>
+          <span className={`status ${statusCls}`}>
+            <span className="dot" />
+            {lead.status}
+          </span>
+        </td>
+        <td>
+          <span className="chev">
+            <ChevronDown className="w-3 h-3" />
+          </span>
+        </td>
       </tr>
       <tr className={`detail-row ${isOpen ? "open" : ""}`}>
         <td colSpan={10}>
@@ -259,33 +276,49 @@ function FragmentRow({
                 <div className="detail-head">
                   <span className="detail-id">Lead {lead.googleLeadId}</span>
                   <div className="badges">
-                    <span className={`badge badge--status ${STATUS_CLS[lead.statusTone] ?? ""}`}>{lead.status}{lead.statusTone === "grey" ? " (not creditable)" : ""}</span>
-                    <span className={`tag-pill ${tagCls}`}><TagIcon />{lead.cls}</span>
+                    <span className={`badge badge--status ${STATUS_CLS[lead.statusTone] ?? ""}`}>
+                      {lead.status}
+                      {lead.statusTone === "grey" ? " (not creditable)" : ""}
+                    </span>
+                    <span className="badge badge--cls">{lead.cls}</span>
                     <span className={`badge badge--credit ${cm.cls}`}>{cm.txt}</span>
                   </div>
                 </div>
                 <div className="cards">
                   <div className="card"><h3>Credit state</h3><p className="muted">{lead.creditLabel}</p></div>
                   <div className="card"><h3>Created</h3><p className="muted">{lead.created}</p></div>
-                  <div className="card"><h3>Age / window</h3><p className="muted">{lead.age}d old · {lead.days}d left ({winTxt})</p></div>
+                  <div className="card"><h3>Age / window</h3><p className="muted">{lead.age} days old · {lead.days} left ({winTxt})</p></div>
                   <div className="card"><h3>Lead type</h3><p className="muted">{lead.type}</p></div>
                   <div className="card"><h3>Source status</h3><p className="muted">ACTIVE</p></div>
-                  <div className="card"><h3>Charged</h3><p className="big">{fmtCharge(lead.charge, prefs)}</p></div>
-                  <div className="card"><h3>Credit amount</h3><p className="muted">{lead.creditState === "CREDITED" ? fmtCharge(lead.charge, prefs) : "—"}</p></div>
+                  <div className="card"><h3>Charged</h3><p className="big">{fmtCharge(lead.charge)}</p></div>
+                  <div className="card"><h3>Credit amount</h3><p className="muted">{lead.creditState === "CREDITED" ? fmtCharge(lead.charge) : "—"}</p></div>
                   <div className="card"><h3>Contact</h3><p className="muted">{(lead.name ?? "—") + (lead.phone ? ` · ${lead.phone}` : "")}</p></div>
                   <div className="card"><h3>Review verdict</h3><p className="muted">{verdict}</p></div>
                   <div className="card"><h3>Dispute reason</h3><p className="muted">{lead.dispute || "—"}</p></div>
                   <div className="card wide"><h3>Classification</h3><p>{lead.clsDetail}</p></div>
                   <div className="card wide">
                     <h3>Conversation</h3>
-                    <div className="convo"><span className="tag">{lead.convo[0]}</span><span>{lead.convo[1]}</span></div>
+                    <div className="convo">
+                      <span className="tag">{lead.convo[0]}</span>
+                      <span>{lead.convo[1]}</span>
+                    </div>
                     {lead.note && <p className="note-line">{lead.note}</p>}
+                  </div>
+                  <div className="card wide">
+                    <h3>Raw payload</h3>
+                    <pre className="raw">{JSON.stringify(lead, null, 2)}</pre>
                   </div>
                 </div>
                 <div className="detail-actions">
-                  <button className="act act--accent" onClick={() => onToast(`Credit dispute opened for ${lead.googleLeadId}`, "info")}><RotateCcw />Open dispute</button>
-                  <button className="act act--danger" onClick={() => onToast(`Marked ${lead.googleLeadId} as junk`, "warn")}><X />Mark as junk</button>
-                  <button className="act" onClick={() => onToast("Lead kept as good", "ok")}><Check />Keep as good</button>
+                  <button className="act act--accent" onClick={() => onToast(`Credit dispute opened for ${lead.googleLeadId}`, "info")}>
+                    <RotateCcw className="w-3.5 h-3.5" /> Open dispute
+                  </button>
+                  <button className="act act--danger" onClick={() => onToast(`Marked ${lead.googleLeadId} as junk`, "warn")}>
+                    <X className="w-3.5 h-3.5" /> Mark as junk
+                  </button>
+                  <button className="act" onClick={() => onToast("Lead kept as good", "ok")}>
+                    <Check className="w-3.5 h-3.5" /> Keep as good
+                  </button>
                 </div>
               </div>
             </div>
