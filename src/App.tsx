@@ -4,8 +4,11 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, RefreshCw } from "lucide-react";
 import AuditConsole from "@/components/audit-console";
+import PrefsMenu from "@/components/prefs-menu";
+import { usePrefs } from "@/usePrefs";
 
 export default function App() {
+  const { prefs, update, reset } = usePrefs();
   const [toasts, setToasts] = useState<{ id: number; msg: string; kind: string }[]>([]);
   const [syncing, setSyncing] = useState(false);
   const [syncedAt, setSyncedAt] = useState<Date>(new Date());
@@ -45,6 +48,7 @@ export default function App() {
           <span className="live" />
           CID 1234567890 · synced {stamp}
         </span>
+        <PrefsMenu prefs={prefs} update={update} reset={reset} />
         <button className={`topbtn ${syncing ? "is-syncing" : ""}`} onClick={onRefresh} disabled={syncing}>
           <RefreshCw className="w-3.5 h-3.5" />
           {syncing ? "Syncing…" : "Refresh"}
@@ -52,7 +56,7 @@ export default function App() {
       </header>
 
       <main className="dash">
-        <AuditConsole key={refreshKey} onToast={pushToast} />
+        <AuditConsole key={refreshKey} prefs={prefs} onToast={pushToast} />
       </main>
 
       <div className="toasts">

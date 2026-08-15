@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Search, ChevronDown, Check, X, RotateCcw, AlertTriangle, Trash2, Sparkles } from "lucide-react";
 import { LEADS, type Lead } from "@/data/leads";
+import { type Prefs } from "@/prefs";
 
 type FilterKey = "all" | "needs-review" | "auto-junk" | "likely-good";
 type SortKey = "date" | "cat" | "type" | "charge" | "credit" | "age" | "days" | "status";
@@ -23,15 +24,32 @@ const CREDIT_MAP: Record<string, { cls: string; txt: string }> = {
   NO_CREDIT: { cls: "none", txt: "Not refunded" },
 };
 
-const fmtCharge = (c: number | null) => (c == null ? "—" : `$${c.toFixed(2)}`);
-const daysCls = (d: string) =>
-  d === "Expired" ? "days--red" : Number(d.replace("d", "")) <= 7 ? "days--amber" : "days--calm";
+function fmtCharge(c: number | null, p: Prefs) {
+  if (c == null) return "—";
+  const cur = p.currency === "none" ? "" : p.currency === "USD" ? "$" : p.currency === "EUR" ? "€" : "£";
+  const fixed = p.numberFormat === "eu" ? c.toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".") : c.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return `${cur}${fixed}`;
+}
 
-function CountUp({ value, currency }: { value: number; currency?: boolean }) {
+function fmtDate(d: string, p: Prefs) {
+  if (p.dateFormat === "relative") {
+    const days = Math.round((Date.now() - new Date(d + "T00:00:00").getTime()) / 86400000);
+    return days <= 0 ? "today" : `${days}d ago`;
+  }
+  const [y, m, day] = d.split("-").map(Number);
+  if (p.dateFormat === "us") return `${String(m).padStart(2, "0")}/${String(day).padStart(2, "0")}/${String(y).slice(2)}`;
+  if (p.dateFormat === "eu") return `${String(day).padStart(2, "0")}.${String(m).padStart(2, "0")}.${String(y).slice(2)}`;
+  return d;
+}
+
+function daysCls(d: string) {
+  return d === "Expired" ? "days--red" : Number(d.replace("d", "")) <= 7 ? "days--amber" : "days--calm";
+}
+
+function CountUp({ value, currency, prefs }: { value: number; currency?: boolean; prefs: Prefs }) {
   const [v, setV] = useState(0);
   useEffect(() => {
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce) { setV(value); return; }
+    if (!prefs.animations) { setV(value); return; }
     let raf = 0;
     const t0 = performance.now();
     const dur = 800;
@@ -43,16 +61,20 @@ function CountUp({ value, currency }: { value: number; currency?: boolean }) {
     };
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
-  }, [value]);
-  return <>{currency ? `$${v.toFixed(2)}` : Math.round(v).toLocaleString()}</>;
+  }, [value, prefs.animations]);
+  if (currency) return <>{fmtCharge(value, prefs)}</>;
+  const n = Math.round(v);
+  return <>{prefs.numberFormat === "eu" ? n.toLocaleString("de-DE") : n.toLocaleString("en-US")}</>;
 }
 
-export default function AuditConsole({ onToast }: { onToast: (msg: string, kind?: string) => void }) {
-  const [filter, setFilter] = useState<FilterKey>("all");
+export default function AuditConsole({ prefs, onToast }: { prefs: Prefs; onToast: (msg: string, kind?: string) => void }) {
+  const [filter, setFilter] = useState<FilterKey>(prefs.defaultFilter);
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [openIdx, setOpenIdx] = useState<number | null>(null);
+
+  useEffect(() => { setFilter(prefs.defaultFilter); }, [prefs.defaultFilter]);
 
   const stats = useMemo(() => {
     const junk = LEADS.filter((l) => l.cls === "Auto-junk");
@@ -62,12 +84,12 @@ export default function AuditConsole({ onToast }: { onToast: (msg: string, kind?
     const needsReview = LEADS.filter((l) => l.cls === "Needs review").length;
     return [
       { label: "Needs review", value: needsReview, sub: "action required", tone: "warn" as const },
-      { label: "Auto-junk", value: junk.length, sub: `${fmtCharge(junk.reduce((s, l) => s + (l.charge ?? 0), 0))} blocked`, tone: "neutral" as const },
+      { label: "Auto-junk", value: junk.length, sub: `${fmtCharge(junk.reduce((s, l) => s + (l.charge ?? 0), 0), prefs)} blocked`, tone: "neutral" as const },
       { label: "Closing ≤7d", value: expiring, sub: "dispute window", tone: "warn" as const },
       { label: "Credits recovered", value: credited, sub: "est · Google decides", tone: "good" as const, currency: true },
       { label: "Charged (total)", value: charged, sub: `${LEADS.length} leads`, tone: "accent" as const, currency: true },
     ];
-  }, []);
+  }, [prefs]);
 
   const rows = useMemo(() => {
     let r = LEADS.filter(FMAP[filter]);
@@ -116,18 +138,16 @@ export default function AuditConsole({ onToast }: { onToast: (msg: string, kind?
 
   return (
     <div className="dash-inner">
-      {/* summary tiles */}
       <div className="stat-row">
         {stats.map((s) => (
           <div key={s.label} className={`stat ${s.tone === "warn" ? "stat--warn" : s.tone === "good" ? "stat--good" : s.tone === "accent" ? "stat--accent" : ""}`}>
             <span className="stat__label">{s.label}</span>
-            <span className="stat__value">{s.currency ? <CountUp value={s.value} currency /> : <CountUp value={s.value} />}</span>
+            <span className="stat__value"><CountUp value={s.value} currency={s.currency} prefs={prefs} /></span>
             <span className="stat__sub">{s.sub}</span>
           </div>
         ))}
       </div>
 
-      {/* controls */}
       <div className="controls">
         <div className="filters">
           {([
@@ -148,7 +168,6 @@ export default function AuditConsole({ onToast }: { onToast: (msg: string, kind?
         </div>
       </div>
 
-      {/* leads table */}
       <div className="table-wrap">
         <table className="w-full">
           <thead>
@@ -192,6 +211,7 @@ export default function AuditConsole({ onToast }: { onToast: (msg: string, kind?
                   daysTxt={daysTxt}
                   tagCls={tagCls}
                   TagIcon={TagIcon}
+                  prefs={prefs}
                   onToast={onToast}
                 />
               );
@@ -207,11 +227,11 @@ export default function AuditConsole({ onToast }: { onToast: (msg: string, kind?
 }
 
 function FragmentRow({
-  lead, isOpen, onToggle, cm, daysTxt, tagCls, TagIcon, onToast,
+  lead, isOpen, onToggle, cm, daysTxt, tagCls, TagIcon, prefs, onToast,
 }: {
   lead: Lead; isOpen: boolean; onToggle: () => void;
   cm: { cls: string; txt: string }; daysTxt: string;
-  tagCls: string; TagIcon: any; onToast: (msg: string, kind?: string) => void;
+  tagCls: string; TagIcon: any; prefs: Prefs; onToast: (msg: string, kind?: string) => void;
 }) {
   const statusCls = lead.status === "Resolved" ? "status--resolved" : lead.status === "Out of area" ? "status--warn" : "status--rated";
   const winTxt = lead.window === "expired" ? "expired" : lead.window === "closing" ? "closing" : "open";
@@ -220,13 +240,11 @@ function FragmentRow({
   return (
     <>
       <tr className={`row ${isOpen ? "open" : ""}`} onClick={onToggle}>
-        <td className="date">{lead.date}</td>
+        <td className="date">{fmtDate(lead.date, prefs)}</td>
         <td className="cat">{lead.cat}</td>
         <td className="type">{lead.type}</td>
-        <td className="num charge">{fmtCharge(lead.charge)}</td>
-        <td>
-          <span className={`tag-pill ${tagCls}`}><TagIcon />{lead.cls}</span>
-        </td>
+        <td className="num charge">{fmtCharge(lead.charge, prefs)}</td>
+        <td><span className={`tag-pill ${tagCls}`}><TagIcon />{lead.cls}</span></td>
         <td><span className={`badge badge--credit ${cm.cls}`} style={{ borderRadius: 6, padding: "3px 9px", fontSize: 11.5, fontWeight: 600 }}>{cm.txt}</span></td>
         <td className="num">{lead.age}d</td>
         <td className="num"><span className={`days ${daysCls(daysTxt)}`}>{daysTxt}</span></td>
@@ -252,8 +270,8 @@ function FragmentRow({
                   <div className="card"><h3>Age / window</h3><p className="muted">{lead.age}d old · {lead.days}d left ({winTxt})</p></div>
                   <div className="card"><h3>Lead type</h3><p className="muted">{lead.type}</p></div>
                   <div className="card"><h3>Source status</h3><p className="muted">ACTIVE</p></div>
-                  <div className="card"><h3>Charged</h3><p className="big">{fmtCharge(lead.charge)}</p></div>
-                  <div className="card"><h3>Credit amount</h3><p className="muted">{lead.creditState === "CREDITED" ? fmtCharge(lead.charge) : "—"}</p></div>
+                  <div className="card"><h3>Charged</h3><p className="big">{fmtCharge(lead.charge, prefs)}</p></div>
+                  <div className="card"><h3>Credit amount</h3><p className="muted">{lead.creditState === "CREDITED" ? fmtCharge(lead.charge, prefs) : "—"}</p></div>
                   <div className="card"><h3>Contact</h3><p className="muted">{(lead.name ?? "—") + (lead.phone ? ` · ${lead.phone}` : "")}</p></div>
                   <div className="card"><h3>Review verdict</h3><p className="muted">{verdict}</p></div>
                   <div className="card"><h3>Dispute reason</h3><p className="muted">{lead.dispute || "—"}</p></div>
