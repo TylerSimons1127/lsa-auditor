@@ -11,9 +11,11 @@ interface Props {
   disputes: { [id: string]: DisputeRecord };
   onDispute: (id: string, rec: DisputeRecord) => void;
   onToast: (msg: string, kind?: string) => void;
+  rated: { [id: string]: true };
+  onRated: (id: string) => void;
 }
 
-export default function WeeklyReview({ onClose, disputes, onDispute, onToast }: Props) {
+export default function WeeklyReview({ onClose, disputes, onDispute, onToast, rated, onRated }: Props) {
   // Queue = leads still needing a human decision (the "Actionable" set).
   const queue = LEADS.filter((l) => l.cls === "Needs review" || l.cls === "Auto-junk" || l.cls === "Likely good");
   const [i, setI] = useState(0);
@@ -98,6 +100,8 @@ export default function WeeklyReview({ onClose, disputes, onDispute, onToast }: 
                     disputes={disputes}
                     onDispute={onDispute}
                     onToast={onToast}
+                    rated={rated}
+                    onRated={onRated}
                     mode="review"
                   />
                 )}
@@ -107,7 +111,7 @@ export default function WeeklyReview({ onClose, disputes, onDispute, onToast }: 
                 <button className="act" onClick={() => setI((n) => Math.max(0, n - 1))} disabled={i === 0}>
                   <ChevronLeft className="w-3.5 h-3.5" /> Previous
                 </button>
-                <button className="act act--accent" onClick={() => { if (lead) onToast(`Lead ${lead.googleLeadId} kept as good`, "ok"); advance("kept"); }}>
+                <button className="act act--accent" onClick={() => { if (lead) { onRated(lead.id); onToast(`Lead ${lead.googleLeadId} kept as good`, "ok"); } advance("kept"); }}>
                   <Check className="w-3.5 h-3.5" /> Keep as good
                 </button>
                 <button className="act act--danger" onClick={() => setFlagging(true)}>

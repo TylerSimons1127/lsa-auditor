@@ -11,6 +11,7 @@ import { type DisputeRecord } from "@/lead-meta";
 export default function App() {
   const [toasts, setToasts] = useState<{ id: number; msg: string; kind: string }[]>([]);
   const [disputes, setDisputes] = useState<{ [id: string]: DisputeRecord }>({});
+  const [rated, setRated] = useState<{ [id: string]: true }>({});
   const [openLeadId, setOpenLeadId] = useState<string | null>(null);
   const [reviewing, setReviewing] = useState(false);
 
@@ -21,13 +22,14 @@ export default function App() {
   const dropToast = (id: number) => setToasts((t) => t.filter((x) => x.id !== id));
 
   const onDispute = (id: string, rec: DisputeRecord) => setDisputes((d) => ({ ...d, [id]: rec }));
+  const onRated = (id: string) => setRated((r) => ({ ...r, [id]: true }));
 
   const openLead = LEADS.find((l) => l.id === openLeadId) as Lead | undefined;
   const reviewCount = LEADS.filter((l) => l.cls === "Needs review" || l.cls === "Auto-junk" || l.cls === "Likely good").length;
 
   if (reviewing) {
     return (
-      <WeeklyReview onClose={() => setReviewing(false)} disputes={disputes} onDispute={onDispute} onToast={pushToast} />
+      <WeeklyReview onClose={() => setReviewing(false)} disputes={disputes} onDispute={onDispute} onToast={pushToast} rated={rated} onRated={onRated} />
     );
   }
 
@@ -57,6 +59,8 @@ export default function App() {
           onToast={pushToast}
           disputes={disputes}
           onDispute={onDispute}
+          rated={rated}
+          onRated={onRated}
           onOpenLead={setOpenLeadId}
         />
       </main>
@@ -70,7 +74,7 @@ export default function App() {
                 <button className="review__x" onClick={() => setOpenLeadId(null)} aria-label="Close"><X className="w-4 h-4" /></button>
               </div>
               <div className="fullpage__body">
-                <LeadDetailPanel lead={openLead} disputes={disputes} onDispute={onDispute} onToast={pushToast} />
+                <LeadDetailPanel lead={openLead} disputes={disputes} onDispute={onDispute} onToast={pushToast} rated={rated} onRated={onRated} />
               </div>
             </div>
           </div>

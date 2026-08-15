@@ -55,11 +55,15 @@ export default function AuditConsole({
   onToast,
   disputes,
   onDispute,
+  rated,
+  onRated,
   onOpenLead,
 }: {
   onToast: (msg: string, kind?: string) => void;
   disputes: DisputeStore;
   onDispute: (id: string, rec: DisputeRecord) => void;
+  rated: { [id: string]: true };
+  onRated: (id: string) => void;
   onOpenLead: (id: string) => void;
 }) {
   const [filter, setFilter] = useState<FilterKey>("all");
@@ -192,7 +196,7 @@ export default function AuditConsole({
           </thead>
           <tbody>
             {rows.map((l) => {
-              const si = statusInfo(l, !!disputes[l.id]);
+              const si = statusInfo(l, !!disputes[l.id], !!rated[l.id]);
               const cm = creditLabel(l);
               const daysTxt = l.window === "expired" ? "Expired" : `${l.days}d`;
               const isOpen = openIdx === LEADS.indexOf(l);
@@ -212,6 +216,8 @@ export default function AuditConsole({
                     lead={l}
                     disputes={disputes}
                     onDispute={onDispute}
+                    rated={rated}
+                    onRated={onRated}
                     onOpenLead={onOpenLead}
                     onToast={onToast}
                     open={isOpen}
@@ -271,12 +277,14 @@ function FragmentRow({
 // One clean unified panel — used inline (dropdown), in the full-lead overlay, and in the review.
 // `mode="review"` hides the inline action buttons (the review has its own decision footer).
 export function LeadDetailPanel({
-  lead, disputes, onDispute, onToast, mode = "dropdown",
+  lead, disputes, onDispute, onToast, rated, onRated, mode = "dropdown",
 }: {
   lead: Lead;
   disputes: DisputeStore;
   onDispute: (id: string, rec: DisputeRecord) => void;
   onToast: (msg: string, kind?: string) => void;
+  rated: { [id: string]: true };
+  onRated: (id: string) => void;
   mode?: "dropdown" | "review";
 }) {
   const cm = creditLabel(lead);
@@ -298,8 +306,16 @@ export function LeadDetailPanel({
     { k: "Dispute reason", v: lead.dispute || "—" },
   ];
 
+  const st = statusInfo(lead, !!disputes[lead.id], !!rated[lead.id]);
+  const toneCls =
+    st.tone === "resolved" ? "status--resolved" : st.tone === "missed" || st.tone === "disputed" ? "status--warn" : st.tone === "actionable" ? "status--actionable" : "status--rated";
+
   return (
     <div className="panel">
+      <div className={`status ${toneCls}`} style={{ marginBottom: 4 }}>
+        <span className="dot" />
+        {st.label}
+      </div>
       <div className="kv-grid">
         {rows.map((r) => (
           <div className="kv" key={r.k}>
@@ -324,7 +340,7 @@ export function LeadDetailPanel({
       </div>
 
       {mode === "dropdown" && (
-        <DisputeBox lead={lead} rec={rec} onDispute={onDispute} onToast={onToast} />
+        <DisputeBox lead={lead} rec={rec} onDispute={onDispute} onToast={onToast} onRated={onRated} />
       )}
 
       <RawPayload lead={lead} />
@@ -411,11 +427,12 @@ export function DisputeForm({
 
 // Dropdown variant: shows the filed state, or action buttons + reason selector.
 function DisputeBox({
-  lead, rec, onDispute, onToast,
+  lead, rec, onDispute, onToast, onRated,
 }: {
   lead: Lead; rec?: DisputeRecord;
   onDispute: (id: string, r: DisputeRecord) => void;
   onToast: (msg: string, kind?: string) => void;
+  onRated: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -457,7 +474,7 @@ function DisputeBox({
         <button className="act act--danger" onClick={() => onToast(`Marked ${lead.googleLeadId} as junk`, "warn")}>
           <X className="w-3.5 h-3.5" /> Mark as junk
         </button>
-        <button className="act" onClick={() => onToast(`Lead ${lead.googleLeadId} kept as good`, "ok")}>
+        <button className="act" onClick={() => { onRated(lead.id); onToast(`Lead ${lead.googleLeadId} kept as good`, "ok"); }}>
           <Check className="w-3.5 h-3.5" /> Keep as good
         </button>
       </div>
@@ -479,10 +496,12 @@ function RawPayload({ lead }: { lead: Lead }) {
 
 // Inline expanded row wrapper (rendered inside <tbody>)
 function ExpandedLead({
-  lead, disputes, onDispute, onOpenLead, onToast, open,
+  lead, disputes, onDispute, rated, onRated, onOpenLead, onToast, open,
 }: {
   lead: Lead; disputes: DisputeStore;
   onDispute: (id: string, rec: DisputeRecord) => void;
+  rated: { [id: string]: true };
+  onRated: (id: string) => void;
   onOpenLead: (id: string) => void; onToast: (msg: string, kind?: string) => void;
   open: boolean;
 }) {
@@ -498,7 +517,7 @@ function ExpandedLead({
                   Open full lead page →
                 </button>
               </div>
-              <LeadDetailPanel lead={lead} disputes={disputes} onDispute={onDispute} onToast={onToast} />
+              <LeadDetailPanel lead={lead} disputes={disputes} onDispute={onDispute} rated={rated} onRated={onRated} onToast={onToast} />
             </div>
           </div>
         </div>
