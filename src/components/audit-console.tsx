@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, Fragment } from "react";
 import { Search, ChevronDown, Check, X, RotateCcw, Radio, MessageSquare } from "lucide-react";
 import { LEADS, type Lead } from "@/data/leads";
 import {
@@ -198,17 +198,26 @@ export default function AuditConsole({
               const isOpen = openIdx === LEADS.indexOf(l);
               const creditShown = showCreditState(l);
               return (
-                <FragmentRow
-                  key={l.id}
-                  lead={l}
-                  isOpen={isOpen}
-                  onToggle={() => toggleRow(LEADS.indexOf(l))}
-                  statusInfo={si}
-                  cm={cm}
-                  creditShown={creditShown}
-                  daysTxt={daysTxt}
-                  disputed={!!disputes[l.id]}
-                />
+                <Fragment key={l.id}>
+                  <FragmentRow
+                    lead={l}
+                    isOpen={isOpen}
+                    onToggle={() => toggleRow(LEADS.indexOf(l))}
+                    statusInfo={si}
+                    cm={cm}
+                    creditShown={creditShown}
+                    daysTxt={daysTxt}
+                    disputed={!!disputes[l.id]}
+                  />
+                  <ExpandedLead
+                    lead={l}
+                    disputes={disputes}
+                    onDispute={onDispute}
+                    onOpenLead={onOpenLead}
+                    onToast={onToast}
+                    open={isOpen}
+                  />
+                </Fragment>
               );
             })}
             {rows.length === 0 && (
@@ -218,21 +227,7 @@ export default function AuditConsole({
         </table>
       </div>
 
-      {/* expanded detail panels */}
-      {rows.map((l) => {
-        const isOpen = openIdx === LEADS.indexOf(l);
-        if (!isOpen) return null;
-        return (
-          <ExpandedLead
-            key={`exp-${l.id}`}
-            lead={l}
-            disputes={disputes}
-            onDispute={onDispute}
-            onOpenLead={onOpenLead}
-            onToast={onToast}
-          />
-        );
-      })}
+      {/* expanded detail rows are rendered inline inside <tbody> above */}
     </div>
   );
 }
@@ -459,16 +454,17 @@ function RawPayload({ lead }: { lead: Lead }) {
   );
 }
 
-// Inline expanded row wrapper
+// Inline expanded row wrapper (rendered inside <tbody>)
 function ExpandedLead({
-  lead, disputes, onDispute, onOpenLead, onToast,
+  lead, disputes, onDispute, onOpenLead, onToast, open,
 }: {
   lead: Lead; disputes: DisputeStore;
   onDispute: (id: string, rec: DisputeRecord) => void;
   onOpenLead: (id: string) => void; onToast: (msg: string, kind?: string) => void;
+  open: boolean;
 }) {
   return (
-    <tr className="detail-row open">
+    <tr className={`detail-row ${open ? "open" : ""}`}>
       <td colSpan={10}>
         <div className="detail-wrap">
           <div className="detail-inner">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, Check, ChevronRight, ChevronLeft, Flag } from "lucide-react";
+import { X, Check, ChevronRight, ChevronLeft } from "lucide-react";
 import { LEADS, type Lead } from "@/data/leads";
 import { LeadDetailPanel } from "@/components/audit-console";
 import { type DisputeRecord } from "@/lead-meta";
@@ -30,8 +30,11 @@ export default function WeeklyReview({ onClose, disputes, onDispute, onToast }: 
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") { onClose(); return; }
       if (finished) return;
+      const t = e.target as HTMLElement | null;
+      const typing = t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable);
+      if (typing) return;
       if (e.key === "ArrowRight" || e.key === "Enter") advance("skipped");
       if (e.key === "ArrowLeft") setI((n) => Math.max(0, n - 1));
     };
@@ -70,9 +73,8 @@ export default function WeeklyReview({ onClose, disputes, onDispute, onToast }: 
             <LeadDetailPanel
               lead={lead}
               disputes={disputes}
-              onDispute={(id, rec) => { onDispute(id, rec); onToast(`Flagged ${id} for dispute`, "info"); }}
+              onDispute={(id, rec) => { onDispute(id, rec); }}
               onToast={onToast}
-              compact
             />
           )}
         </div>
@@ -83,9 +85,6 @@ export default function WeeklyReview({ onClose, disputes, onDispute, onToast }: 
           </button>
           <button className="act act--accent" onClick={() => advance("kept")}>
             <Check className="w-3.5 h-3.5" /> Keep as good
-          </button>
-          <button className="act" onClick={() => advance("disputed")}>
-            <Flag className="w-3.5 h-3.5" /> Flag for dispute
           </button>
           <button className="act act--ghost" onClick={() => advance("skipped")}>
             Skip <ChevronRight className="w-3.5 h-3.5" />
