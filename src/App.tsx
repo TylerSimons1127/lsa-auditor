@@ -25,6 +25,12 @@ export default function App() {
   const openLead = LEADS.find((l) => l.id === openLeadId) as Lead | undefined;
   const reviewCount = LEADS.filter((l) => l.cls === "Needs review" || l.cls === "Auto-junk" || l.cls === "Likely good").length;
 
+  if (reviewing) {
+    return (
+      <WeeklyReview onClose={() => setReviewing(false)} disputes={disputes} onDispute={onDispute} onToast={pushToast} />
+    );
+  }
+
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -69,10 +75,6 @@ export default function App() {
             </div>
           </div>
         </div>
-      )}
-
-      {reviewing && (
-        <WeeklyReview onClose={() => setReviewing(false)} disputes={disputes} onDispute={onDispute} onToast={pushToast} />
       )}
 
       <div className="toasts">

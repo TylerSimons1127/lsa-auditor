@@ -221,21 +221,35 @@ tr.detail-row.open .detail-wrap { grid-template-rows: 1fr; }
 .open-full { font-family: var(--font, sans-serif); font-size: 12.5px; font-weight: 600; color: hsl(var(--foreground) / 0.75); background: hsl(var(--background) / 0.6); border: 1px solid hsl(var(--foreground) / 0.12); border-radius: 999px; padding: 6px 12px; cursor: pointer; transition: all 0.2s; }
 .open-full:hover { border-color: hsl(var(--foreground) / 0.3); color: hsl(var(--foreground)); }
 
-/* ── overlay (full lead page + review) ── */
+/* ── weekly review: full-screen dedicated page ── */
+.review-page { position: relative; height: 100vh; display: flex; flex-direction: column; overflow: hidden; background: hsl(var(--foreground) / 0.035); }
+.review-page__bar {
+  position: relative; z-index: 20; flex: 0 0 auto; display: flex; align-items: center; gap: 16px; height: 52px;
+  padding: 0 clamp(16px, 3vw, 32px);
+  background: hsl(var(--background) / 0.72); backdrop-filter: blur(18px) saturate(160%); -webkit-backdrop-filter: blur(18px) saturate(160%);
+  border-bottom: 1px solid hsl(var(--foreground) / 0.1);
+}
+.backbtn {
+  display: inline-flex; align-items: center; gap: 6px; font-family: var(--font, sans-serif); font-size: 13px; font-weight: 600;
+  color: hsl(var(--foreground) / 0.8); background: hsl(var(--background) / 0.55); border: 1px solid hsl(var(--foreground) / 0.12);
+  border-radius: 999px; padding: 6px 13px; cursor: pointer; transition: all 0.2s;
+}
+.backbtn:hover { color: hsl(var(--foreground)); border-color: hsl(var(--foreground) / 0.3); background: hsl(var(--background) / 0.85); }
+.backbtn svg { width: 15px; height: 15px; }
+.review-page__title { font-family: "Space Grotesk", sans-serif; font-weight: 600; font-size: 15px; letter-spacing: -0.02em; }
+.review-page__progress { margin-left: auto; font-family: "Space Grotesk", sans-serif; font-weight: 600; font-size: 13px; letter-spacing: -0.01em; color: hsl(var(--foreground) / 0.75); }
+.review-page__body { flex: 1 1 auto; min-height: 0; display: flex; align-items: flex-start; justify-content: center; padding: clamp(16px, 4vh, 40px) clamp(12px, 3vw, 32px); overflow: auto; }
+
+/* full lead page overlay (from table "Open full lead page") */
 .overlay { position: fixed; inset: 0; z-index: 500; background: hsl(var(--foreground) / 0.4); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); display: grid; place-items: center; padding: clamp(16px, 4vw, 48px); }
 .overlay__panel { width: min(560px, 96vw); max-height: 92vh; overflow: auto; background: hsl(var(--background) / 0.86); backdrop-filter: blur(22px) saturate(160%); -webkit-backdrop-filter: blur(22px) saturate(160%); border: 1px solid hsl(var(--foreground) / 0.14); border-radius: 18px; box-shadow: 0 30px 80px -30px rgba(15,23,42,0.6); padding: 18px; }
 .overlay__panel--wide { width: min(720px, 96vw); }
 .fullpage__bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .fullpage__body { padding-right: 4px; }
-.review__x { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: hsl(var(--foreground) / 0.06); border: 1px solid hsl(var(--foreground) / 0.12); color: hsl(var(--foreground) / 0.7); cursor: pointer; }
-.review__x:hover { background: hsl(var(--foreground) / 0.12); color: hsl(var(--foreground)); }
-.review__x svg { width: 16px; height: 16px; }
 
 /* weekly review slideshow */
-.review { display: flex; flex-direction: column; gap: 14px; width: min(640px, 96vw); max-height: 92vh; overflow: auto; background: hsl(var(--background) / 0.86); backdrop-filter: blur(22px) saturate(160%); -webkit-backdrop-filter: blur(22px) saturate(160%); border: 1px solid hsl(var(--foreground) / 0.14); border-radius: 18px; box-shadow: 0 30px 80px -30px rgba(15,23,42,0.6); padding: 18px; }
-.review__bar { display: flex; align-items: center; gap: 12px; }
-.review__progress { font-family: "Space Grotesk", sans-serif; font-weight: 600; font-size: 13px; letter-spacing: -0.01em; }
-.review__biz { font-size: 11.5px; color: hsl(var(--muted-foreground)); margin-left: auto; }
+.review { display: flex; flex-direction: column; gap: 14px; width: min(640px, 96vw); max-height: none; overflow: visible; background: hsl(var(--background) / 0.7); backdrop-filter: blur(16px) saturate(150%); -webkit-backdrop-filter: blur(16px) saturate(150%); border: 1px solid hsl(var(--foreground) / 0.1); border-radius: 14px; box-shadow: 0 14px 44px -24px rgba(15, 23, 42, 0.35); padding: 18px; }
+.review__biz { font-size: 11.5px; color: hsl(var(--muted-foreground)); }
 .review__body { min-height: 0; }
 .review__foot { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding-top: 14px; border-top: 1px solid hsl(var(--foreground) / 0.1); }
 .act--ghost { color: hsl(var(--muted-foreground)); }

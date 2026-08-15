@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, Check, ChevronRight, ChevronLeft } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check } from "lucide-react";
 import { LEADS, type Lead } from "@/data/leads";
 import { LeadDetailPanel } from "@/components/audit-console";
 import { type DisputeRecord } from "@/lead-meta";
@@ -44,62 +44,62 @@ export default function WeeklyReview({ onClose, disputes, onDispute, onToast }: 
 
   if (finished) {
     return (
-      <Overlay onClose={onClose}>
-        <div className="review__summary">
-          <div className="review__sum-head">Weekly review complete</div>
-          <div className="review__sum-grid">
-            <div><b>{done.kept}</b><span>Kept as good</span></div>
-            <div><b>{done.disputed}</b><span>Flagged for dispute</span></div>
-            <div><b>{done.skipped}</b><span>Skipped</span></div>
-            <div><b>{queue.length}</b><span>Reviewed total</span></div>
+      <div className="review-page">
+        <header className="review-page__bar">
+          <button className="backbtn" onClick={onClose}><ChevronLeft className="w-4 h-4" /> Back</button>
+          <span className="review-page__title">Weekly review</span>
+        </header>
+        <div className="review-page__body">
+          <div className="review__summary">
+            <div className="review__sum-head">Weekly review complete</div>
+            <div className="review__sum-grid">
+              <div><b>{done.kept}</b><span>Kept as good</span></div>
+              <div><b>{done.disputed}</b><span>Flagged for dispute</span></div>
+              <div><b>{done.skipped}</b><span>Skipped</span></div>
+              <div><b>{queue.length}</b><span>Reviewed total</span></div>
+            </div>
+            <button className="act act--accent" onClick={onClose}><Check className="w-3.5 h-3.5" /> Done</button>
           </div>
-          <button className="act act--accent" onClick={onClose}><Check className="w-3.5 h-3.5" /> Done</button>
         </div>
-      </Overlay>
+      </div>
     );
   }
 
   return (
-    <Overlay onClose={onClose}>
-      <div className="review">
-        <div className="review__bar">
-          <span className="review__progress">Reviewing lead {i + 1} of {queue.length}</span>
-          <span className="review__biz">Sunrise Home Services</span>
-          <button className="review__x" onClick={onClose} aria-label="Close review"><X className="w-4 h-4" /></button>
-        </div>
+    <div className="review-page">
+      <header className="review-page__bar">
+        <button className="backbtn" onClick={onClose}><ChevronLeft className="w-4 h-4" /> Back</button>
+        <span className="review-page__title">Weekly review</span>
+        <span className="review-page__progress">Reviewing lead {i + 1} of {queue.length}</span>
+      </header>
 
-        <div className="review__body">
-          {lead && (
-            <LeadDetailPanel
-              lead={lead}
-              disputes={disputes}
-              onDispute={(id, rec) => { onDispute(id, rec); }}
-              onToast={onToast}
-            />
-          )}
-        </div>
+      <div className="review-page__body">
+        <div className="review review--page">
+          <div className="review__biz">Sunrise Home Services</div>
 
-        <div className="review__foot">
-          <button className="act" onClick={() => { setI((n) => Math.max(0, n - 1)); }} disabled={i === 0}>
-            <ChevronLeft className="w-3.5 h-3.5" /> Back
-          </button>
-          <button className="act act--accent" onClick={() => advance("kept")}>
-            <Check className="w-3.5 h-3.5" /> Keep as good
-          </button>
-          <button className="act act--ghost" onClick={() => advance("skipped")}>
-            Skip <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      </div>
-    </Overlay>
-  );
-}
+          <div className="review__body">
+            {lead && (
+              <LeadDetailPanel
+                lead={lead}
+                disputes={disputes}
+                onDispute={(id, rec) => { onDispute(id, rec); onToast(`Flagged ${lead.googleLeadId} for dispute — saved locally`, "info"); }}
+                onToast={onToast}
+              />
+            )}
+          </div>
 
-function Overlay({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
-  return (
-    <div className="overlay" onClick={onClose}>
-      <div className="overlay__panel" onClick={(e) => e.stopPropagation()}>
-        {children}
+          <div className="review__foot">
+            <button className="act" onClick={() => { setI((n) => Math.max(0, n - 1)); }} disabled={i === 0}>
+              <ChevronLeft className="w-3.5 h-3.5" /> Previous
+            </button>
+            <button className="act act--accent" onClick={() => advance("kept")}>
+              <Check className="w-3.5 h-3.5" /> Keep as good
+            </button>
+            <button className="act act--ghost" onClick={() => advance("skipped")}>
+              Skip <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
